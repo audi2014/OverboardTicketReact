@@ -39,13 +39,8 @@
     "vite": "^4.0.0",
     "vite-tsconfig-paths": "^4.0.3"
   },
-  "husky": {
-    "hooks": {
-      "pre-commit": "lint-staged"
-    }
-  },
   "lint-staged": {
-    "*": "lint:eslint",
-    "package.json": "lint:package-json"
+    "*": "eslint --fix",
+    "package.json": "prettier-package-json --write"
   }
 }
