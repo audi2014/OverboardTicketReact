@@ -1,0 +1,7 @@
+#!/usr/bin/env sh
+. "$(dirname -- "$0")/_/husky.sh"
+
+#fix env for Sourcetree on mac https://github.com/typicode/husky/issues/904
+export PATH=$PATH:/usr/local/bin
+
+pnpm lint-staged

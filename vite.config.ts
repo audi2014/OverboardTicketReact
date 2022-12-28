@@ -1,6 +1,6 @@
-import { defineConfig, loadEnv } from 'vite'
-import react from '@vitejs/plugin-react-swc'
-
+import react from '@vitejs/plugin-react-swc';
+import { defineConfig, loadEnv } from 'vite';
+import tsconfigPaths from 'vite-tsconfig-paths';
 
 /**
  * Replace env variables in index.html
@@ -13,17 +13,12 @@ function htmlPlugin(env: ReturnType<typeof loadEnv>) {
     transformIndexHtml: {
       enforce: 'pre' as const,
       transform: (html: string): string =>
-        html.replace(/%(.*?)%/g, (match, p1) =>
-          env[p1] ?? match
-        ),
-    }
-  }
+        html.replace(/%(.*?)%/g, (match, p1) => env[p1] ?? match),
+    },
+  };
 }
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
-  plugins: [
-    react(),
-    htmlPlugin(loadEnv(mode, '.'))
-  ],
-}))
+  plugins: [tsconfigPaths(), react(), htmlPlugin(loadEnv(mode, '.'))],
+}));
