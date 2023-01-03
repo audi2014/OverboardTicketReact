@@ -15,8 +15,15 @@
     "start:dev": "vite"
   },
   "dependencies": {
+    "@reduxjs/toolkit": "^1.9.1",
+    "i18next": "^22.4.6",
+    "i18next-browser-languagedetector": "^7.0.1",
+    "i18next-http-backend": "^2.1.1",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-i18next": "^12.1.1",
+    "react-redux": "^8.0.5",
+    "redux": "^4.2.0"
   },
   "devDependencies": {
     "@types/react": "^18.0.26",
@@ -30,17 +37,20 @@
     "eslint-plugin-jsx-a11y": "^6.6.1",
     "eslint-plugin-prettier": "^4.2.1",
     "eslint-plugin-react": "^7.31.11",
+    "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-simple-import-sort": "^8.0.0",
     "husky": "^8.0.2",
     "lint-staged": "^13.1.0",
     "prettier": "^2.8.1",
     "prettier-package-json": "^2.8.0",
+    "prettier-plugin-sort-json": "^1.0.0",
     "typescript": "^4.9.3",
     "vite": "^4.0.0",
     "vite-tsconfig-paths": "^4.0.3"
   },
   "lint-staged": {
-    "*": "eslint --fix",
+    "*.(js|jsx|ts|tsx)": "eslint --fix",
+    "*.(css|sass|scss|md)": "prettier --write",
     "package.json": "prettier-package-json --write"
   }
 }

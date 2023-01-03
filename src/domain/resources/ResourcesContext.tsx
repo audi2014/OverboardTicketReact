@@ -14,7 +14,7 @@ export const ResourcesProvider: React.FC<PropsWithChildren> = ({ children }) => 
   const [r, setR] = useState<Resources>();
   useEffect(() => {
     getResources().then(setR);
-  });
+  }, []);
   if (!r) return <h1>Loading Resources...</h1>;
   return <resourcesContext.Provider value={r}>{children}</resourcesContext.Provider>;
 };
