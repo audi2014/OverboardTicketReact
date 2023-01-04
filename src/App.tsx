@@ -1,8 +1,10 @@
-// import { Counter } from 'integration/redux/features/counter/Counter';
+import { Counter } from 'integration/redux/features/counter/Counter';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import reactLogo from './assets/react.svg';
+
+let renders = 0;
 
 export const App = () => {
   const { t, i18n } = useTranslation('translation');
@@ -10,7 +12,8 @@ export const App = () => {
 
   return (
     <div className='App'>
-      {/*<Counter />*/}
+      <h1>Renders: {renders++}</h1>
+      <Counter />
       <div>
         <a href='https://vitejs.dev' target='_blank' rel='noreferrer'>
           <img src='/vite.svg' className='logo' alt='Vite logo' />
