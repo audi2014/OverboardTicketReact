@@ -10,7 +10,8 @@
     "lint:eslint": "eslint . --fix",
     "lint:package-json": "prettier-package-json --write",
     "lint:prettier": "prettier --write .",
-    "lint:tsc": "tsc",
+    "lint:tsc": "tsc --noEmit",
+    "lint:tsc:watch": "tsc --watch --noEmit",
     "pre-commit:install": "husky install",
     "start:dev": "vite"
   },

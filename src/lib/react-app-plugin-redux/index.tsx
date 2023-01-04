@@ -9,7 +9,7 @@ import { Store } from 'redux';
 export const VERSION = '0.0.0';
 export const REQUIRE_BEFORE_INIT = undefined;
 
-export type PreloadedStateType = { [key: string]: unknown };
+export type PreloadedStateType = { [key: string]: unknown } | undefined;
 export type GetPreloadedStateType = () => Promise<PreloadedStateType>;
 export type PreloadedStateProviderInterface = {
   getPreloadedState: GetPreloadedStateType;
@@ -28,7 +28,7 @@ export type ConstructorParamsType<PSP> =
     };
 
 export class ReactAppPluginRedux<
-  PSP extends new (...args: unknown[]) => PreloadedStateProviderInterface,
+  PSP extends new (...args: never[]) => PreloadedStateProviderInterface,
 > implements PluginInterface
 {
   readonly requireBeforeInit = REQUIRE_BEFORE_INIT;
@@ -48,7 +48,6 @@ export class ReactAppPluginRedux<
       } else if (this.constructorParams.PreloadedStateProvider) {
         preloadedStateProvider = container.get(
           this.constructorParams.PreloadedStateProvider,
-          false,
         );
       }
       const preloadedState =

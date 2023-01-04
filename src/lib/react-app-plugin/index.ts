@@ -4,13 +4,8 @@ import { EventBuss } from './impl/EventBuss';
 import { Observable } from './impl/Observable';
 import { PluginContainer } from './impl/PluginContainer';
 import { wrapperHoc } from './impl/wrapperHoc';
-import { EventBussInterface } from './types/EventBussInterface';
-import { ObservableInterface } from './types/ObservableInterface';
-import { PluginContainerInterface } from './types/PluginContainerInterface';
 import {
-  ComponentEventsType,
   ContextValueType,
-  PluginEventsType,
   PluginInitParamsType,
   PluginInterface,
   ReactContextType,
@@ -20,22 +15,19 @@ import { WrapperComponentType } from './types/WrapperHocType';
 export type InitPluginsType = (plugins: PluginInterface[]) => PluginInitParamsType;
 
 export const initPlugins: InitPluginsType = (plugins) => {
-  const container: PluginContainerInterface = new PluginContainer();
-  const eventBuss: EventBussInterface<PluginEventsType & ComponentEventsType> =
-    new EventBuss();
-  const didInit: ObservableInterface<PluginEventsType, 'didInitAll'> = new Observable(
-    undefined,
-    'didInitAll',
-    eventBuss,
-  );
-  const willInitPlugin: ObservableInterface<PluginEventsType, 'willInit'> =
-    new Observable(undefined, 'willInit', eventBuss);
+  const container: ContextValueType['container'] = new PluginContainer();
+  const eventBuss: ContextValueType['eventBuss'] = new EventBuss();
+
+  const observable: ContextValueType['observable'] = {
+    willInit: new Observable(container, 'willInit', eventBuss),
+    didInit: new Observable(container, 'didInit', eventBuss),
+    didInitAll: new Observable(container, 'didInitAll', eventBuss),
+  };
 
   const contextValue: ContextValueType = {
     container,
     eventBuss,
-    didInit,
-    willInitPlugin,
+    observable,
   };
   const context: ReactContextType = React.createContext(contextValue);
   const Wrapper: WrapperComponentType = wrapperHoc(contextValue, context);
@@ -46,17 +38,7 @@ export const initPlugins: InitPluginsType = (plugins) => {
   };
 
   (async () => {
-    container.init(plugins);
-    const wrappers: React.ComponentType[] = [];
-    for (const p of plugins) {
-      await willInitPlugin.publisher.setValue({ pending: p, all: plugins });
-      const result = await p.init(pluginInitParams);
-      if (result?.Wrapper) {
-        wrappers.push(result.Wrapper);
-      }
-    }
-    await willInitPlugin.publisher.setValue(undefined);
-    await didInit.publisher.setValue({ wrappers });
+    await container.init({ plugins, ...pluginInitParams });
   })().catch(console.error);
 
   return pluginInitParams;

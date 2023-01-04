@@ -8,8 +8,9 @@ import { WrapperComponentType } from './WrapperHocType';
 export type ReactComponentWrapperType = React.ComponentType<React.PropsWithChildren>;
 
 export type PluginEventsType = {
-  didInitAll: { wrappers: ReactComponentWrapperType[] } | void;
-  willInit: { pending: PluginInterface; all: PluginInterface[] } | void;
+  didInitAll: PluginContainerInterface;
+  willInit: PluginContainerInterface;
+  didInit: PluginContainerInterface;
 };
 export type ComponentEventsType = {
   componentDidMount: void;
@@ -19,8 +20,9 @@ export type ComponentEventsType = {
 export type ContextValueType = {
   container: PluginContainerInterface;
   eventBuss: EventBussInterface<PluginEventsType & ComponentEventsType>;
-  didInit: ObservableInterface<PluginEventsType, 'didInitAll'>;
-  willInitPlugin: ObservableInterface<PluginEventsType, 'willInit'>;
+  observable: {
+    [key in keyof PluginEventsType]: ObservableInterface<PluginContainerInterface>;
+  };
 };
 
 export type ReactContextType = React.Context<ContextValueType>;
