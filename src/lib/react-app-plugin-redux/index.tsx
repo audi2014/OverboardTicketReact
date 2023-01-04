@@ -21,11 +21,17 @@ export type ConstructorParamsType<PSP> =
   | {
       store: Store;
     }
-  | {
+  | ({
       createStore: StoreBuilderType;
-      preloadedStateProvider?: PreloadedStateProviderInterface;
-      PreloadedStateProvider?: PSP;
-    };
+    } & (
+      | {
+          PreloadedStateProvider: PSP;
+        }
+      | {
+          preloadedStateProvider: PreloadedStateProviderInterface;
+        }
+      | PreloadedStateProviderInterface
+    ));
 
 export class ReactAppPluginRedux<
   PSP extends new (...args: never[]) => PreloadedStateProviderInterface,
@@ -42,16 +48,17 @@ export class ReactAppPluginRedux<
     if ('store' in this.constructorParams) {
       createdStore = this.constructorParams.store;
     } else {
-      let preloadedStateProvider: PreloadedStateProviderInterface | undefined;
-      if (this.constructorParams.preloadedStateProvider) {
-        preloadedStateProvider = this.constructorParams.preloadedStateProvider;
-      } else if (this.constructorParams.PreloadedStateProvider) {
-        preloadedStateProvider = container.get(
-          this.constructorParams.PreloadedStateProvider,
-        );
+      let preloadedState: PreloadedStateType | undefined;
+      if ('getPreloadedState' in this.constructorParams) {
+        preloadedState = await this.constructorParams.getPreloadedState();
+      } else if ('preloadedStateProvider' in this.constructorParams) {
+        preloadedState =
+          await this.constructorParams.preloadedStateProvider.getPreloadedState();
+      } else if ('PreloadedStateProvider' in this.constructorParams) {
+        preloadedState = await container
+          .get(this.constructorParams.PreloadedStateProvider)
+          .getPreloadedState();
       }
-      const preloadedState =
-        preloadedStateProvider && (await preloadedStateProvider.getPreloadedState());
       createdStore = await this.constructorParams.createStore({ preloadedState });
     }
     this.store = createdStore;

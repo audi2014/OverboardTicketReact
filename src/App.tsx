@@ -12,7 +12,7 @@ export const App = () => {
 
   return (
     <div className='App'>
-      <h1>Renders: {renders++}</h1>
+      <h1>Renders: {++renders}</h1>
       <Counter />
       <div>
         <a href='https://vitejs.dev' target='_blank' rel='noreferrer'>

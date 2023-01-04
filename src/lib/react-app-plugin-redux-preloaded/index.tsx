@@ -14,7 +14,7 @@ import { ConstructorParamsType, PluginFieldsType } from './types';
 export const VERSION = '0.0.0';
 export const REQUIRE_BEFORE_INIT = undefined;
 
-export class ReactAppPluginReduxPreloaded
+export class ReactAppPluginPreloadedState
   implements PluginInterface, PluginFieldsType, PreloadedStateProviderInterface
 {
   readonly version = VERSION;
@@ -29,7 +29,7 @@ export class ReactAppPluginReduxPreloaded
 
   constructor(params: ConstructorParamsType) {
     this.getStateBeforeSave = params.getStateBeforeSave;
-    this.config = params.config ?? { key: `${ReactAppPluginReduxPreloaded.name}` };
+    this.config = params.config ?? { key: `${ReactAppPluginPreloadedState.name}` };
     this.storage = params.storage ?? new WebStorage();
     this.serializer = params.serializer ?? new SerializerJson();
     this.controller = params.controller ?? new ControllerWeb();

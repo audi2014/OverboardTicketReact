@@ -13,14 +13,12 @@ export class ReactAppPluginSuspense implements PluginInterface {
 
   constructor(
     readonly fallback?: React.ReactNode,
-    readonly FallbackComponent?: React.ComponentType,
+    readonly Fallback?: React.ComponentType,
   ) {}
 
   async init() {
     const Wrapper: ReactComponentWrapperType = ({ children }) => (
-      <React.Suspense
-        fallback={this.FallbackComponent ? <this.FallbackComponent /> : this.fallback}
-      >
+      <React.Suspense fallback={this.Fallback ? <this.Fallback /> : this.fallback}>
         {children}
       </React.Suspense>
     );

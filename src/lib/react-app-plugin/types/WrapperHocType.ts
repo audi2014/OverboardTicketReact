@@ -4,6 +4,7 @@ import { ContextValueType, ReactContextType } from './PluginInterface';
 
 export type WrapperPropsType = {
   Loader?: React.ComponentType;
+  loader?: React.ReactNode;
   App?: React.ComponentType<React.PropsWithChildren>;
 };
 

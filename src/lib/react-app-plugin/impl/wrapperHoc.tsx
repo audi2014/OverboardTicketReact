@@ -4,7 +4,7 @@ import { WrapperComponentType, WrapperHocType } from '../types/WrapperHocType';
 import { useObservableValue } from './useObservableValue';
 
 export const wrapperHoc: WrapperHocType = ({ eventBuss, observable }) => {
-  const WrapperComponent: WrapperComponentType = ({ App, Loader, children }) => {
+  const WrapperComponent: WrapperComponentType = ({ App, Loader, loader, children }) => {
     const didInitValue = useObservableValue(observable.didInitAll.listener);
 
     React.useEffect(() => {
@@ -29,6 +29,10 @@ export const wrapperHoc: WrapperHocType = ({ eventBuss, observable }) => {
 
     if (Loader) {
       return <Loader />;
+    }
+
+    if (loader) {
+      return <>{loader}</>;
     }
 
     return null;
