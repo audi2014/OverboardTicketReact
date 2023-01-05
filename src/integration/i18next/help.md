@@ -1,0 +1,3 @@
+- https://react.i18next.com/latest/typescript
+- https://react.i18next.com/latest/using-with-hooks#configure-i18next
+- https://www.i18next.com/overview/getting-started
