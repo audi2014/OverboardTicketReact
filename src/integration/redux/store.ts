@@ -1,6 +1,7 @@
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
-import { counterSlice } from 'integration/redux/features/counter/counterSlice';
 import { CreateStoreParamsType } from 'lib/react-app-plugin-redux';
+
+import { counterSlice } from './features/example/counterSlice';
 
 export const createStore = async ({ preloadedState }: CreateStoreParamsType) => {
   return configureStore({
