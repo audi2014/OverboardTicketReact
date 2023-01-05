@@ -1,0 +1,4 @@
+{
+  "loading": "loading...",
+  "formattingDate": "{{date, datetime}}"
+}

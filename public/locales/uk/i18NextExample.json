@@ -1,0 +1,8 @@
+{
+  "interpolationPlural_few": "$t(glossary:render): {{count}} (Декілька рендерів це нормально)",
+  "interpolationPlural_many": "$t(glossary:render): {{count}} (Багато рендерів - багато проблем)",
+  "interpolationPlural_one": "$t(glossary:render): {{count}} (Один рендер це ідеально)",
+  "interpolationPlural_other": "$t(glossary:render): {{count}} (Як ти це зробив???)",
+  "interpolationPlural_two": "$t(glossary:render): {{count}} (Два? Здогадуюсь що ти юзнув React.StrictMode)",
+  "interpolationPlural_zero": "Нема рендерів - нема грошей"
+}

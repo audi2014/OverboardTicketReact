@@ -1,0 +1,8 @@
+{
+  "interpolationPlural_few": "$t(glossary:render): {{count}} (Few renders is also ok)",
+  "interpolationPlural_many": "$t(glossary:render): {{count}} (Many renders - many problems)",
+  "interpolationPlural_one": "$t(glossary:render): {{count}} (One render is ideal)",
+  "interpolationPlural_other": "$t(glossary:render): {{count}} (How???)",
+  "interpolationPlural_two": "$t(glossary:render): {{count}} (Two? i guess you are using React.StrictMode)",
+  "interpolationPlural_zero": "No renders - no earnings"
+}

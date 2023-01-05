@@ -12,6 +12,7 @@ export const i18nInitialization = i18nInstance
   .use(LanguageDetector)
   .use(initReactI18next)
   .init({
+    defaultNS: 'common',
     fallbackLng: defaultLanguage,
     debug: isDebug,
     interpolation: {
