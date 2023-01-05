@@ -8,8 +8,8 @@ import { ReactAppPluginRedux } from 'lib/react-app-plugin-redux';
 import { ReactAppPluginPreloadedState } from 'lib/react-app-plugin-redux-preloaded';
 import { ReactAppPluginSuspense } from 'lib/react-app-plugin-suspense';
 
-import * as integrationI18next from './integration/i18next';
-// import * as integrationI18next from './integration/i18next-locize';
+// import * as integrationI18next from './integration/i18next';
+import * as integrationI18next from './integration/i18next-locize';
 import * as integrationRedux from './integration/redux/store';
 
 export const { Wrapper, context, container, eventBuss, observable } = initPlugins([
