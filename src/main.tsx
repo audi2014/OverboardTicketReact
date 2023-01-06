@@ -13,7 +13,7 @@ import * as integrationI18next from './integration/i18next-locize';
 import * as integrationRedux from './integration/redux/store';
 
 export const { Wrapper, context, container, eventBuss, observable } = initPlugins([
-  new ReactAppPluginDom({ elementId: 'root', App, loader: 'loader', strictMode: true }),
+  new ReactAppPluginDom({ elementId: 'root', App, loader: 'loader', strictMode: false }),
   new ReactAppPluginSuspense(),
   new ReactAppPluginReactI18next(integrationI18next.i18nInstance),
   new ReactAppPluginPreloadedState({
