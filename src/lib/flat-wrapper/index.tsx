@@ -36,11 +36,13 @@ const AsyncGuard = <TaskResult,>({
   task,
   children,
   onPending,
+  onProgress,
   onError,
 }: {
   task: () => Promise<TaskResult>;
   children: ((v: TaskResult) => ReactElement)[] | ((v: TaskResult) => ReactElement);
   onPending?: () => ReactElement;
+  onProgress?: () => ReactElement;
   onError?: (error: unknown) => ReactElement;
 } & (
   | {
@@ -51,15 +53,20 @@ const AsyncGuard = <TaskResult,>({
     }
 )) => {
   const ctx = useContext(asyncGuardContext);
+  const taskRef = useRef(task);
   const errorRef = useRef<unknown>();
   const successRef = useRef<TaskResult>();
-  const [status, setStatus] = useState<'pending' | 'error' | 'success'>('pending');
+  const [status, setStatus] = useState<'pending' | 'progress' | 'error' | 'success'>(
+    'pending',
+  );
   useEffect(() => {
-    setStatus('pending');
     errorRef.current = undefined;
     successRef.current = undefined;
     ctx.promise = ctx.promise
-      .then(() => task())
+      .then(() => {
+        setStatus('progress');
+        return taskRef.current();
+      })
       .then((success) => {
         console.log('task done', success);
         successRef.current = success;
@@ -71,10 +78,9 @@ const AsyncGuard = <TaskResult,>({
         errorRef.current = error;
         setStatus('error');
       });
-  }, []);
+  }, [ctx]);
 
   if (status === 'success') {
-    // bug wait for all pending childrens
     const array = Array.isArray(children) ? children : [children];
     return (
       <>
@@ -85,14 +91,19 @@ const AsyncGuard = <TaskResult,>({
         ))}
       </>
     );
-  } else if (status === 'error' && onError) return onError(errorRef.current);
-  else if (status === 'error') throw errorRef.current;
-  else if (onPending) return onPending();
-  else return null;
+  }
+  if (status === 'error') {
+    if (onError) return onError(errorRef.current);
+    throw errorRef.current;
+  }
+  if (status === 'pending') return (onPending && onPending()) || null;
+  if (status === 'progress') return (onProgress && onProgress()) || null;
+
+  return null;
 };
 
 /// TESTS -----------------
-const delay = <T,>(ms = 1000, v?: T) => new Promise((r) => setTimeout(() => r(v), ms));
+const delay = <T,>(ms = 500, v?: T) => new Promise((r) => setTimeout(() => r(v), ms));
 
 const AsyncGuardTest: React.ComponentType<PropsWithChildren<{ lvl: number }>> = ({
   lvl,
@@ -100,27 +111,20 @@ const AsyncGuardTest: React.ComponentType<PropsWithChildren<{ lvl: number }>> = 
 }) => {
   return (
     <fieldset>
-      <p>Parent Result: {lvl}</p>
+      <p>{lvl}</p>
       <AsyncGuard
         task={() => delay(1500).then(() => `${lvl}`)}
         onError={(error) => <p>{String(error)}</p>}
-        onPending={() => <p style={{ color: 'gray' }}>Loading... lvl={lvl}</p>}
+        onPending={() => <p style={{ color: 'gray' }}>Pending...</p>}
+        onProgress={() => <p style={{ color: 'blue' }}>Progress...</p>}
       >
         {[
           //
           (r) => {
-            console.log('mag', r);
             return (
               <>
-                <p>Result: {r}</p>
-              </>
-            );
-          },
-          (r) => {
-            return (
-              <>
-                <p>Result: {r}</p>
-                {children}
+                <p style={{ color: 'green' }}>Result: {r}</p>
+                <>{children}</>
               </>
             );
           },
@@ -132,22 +136,22 @@ const AsyncGuardTest: React.ComponentType<PropsWithChildren<{ lvl: number }>> = 
 
 export const test = (
   <FlatWrapper>
-    <AsyncGuardTest lvl={1.1}></AsyncGuardTest>
-    <AsyncGuardTest lvl={1.2}>
-      <AsyncGuardTest lvl={2.1}>
-        <AsyncGuardTest lvl={3.1}></AsyncGuardTest>
-        <AsyncGuardTest lvl={3.2}></AsyncGuardTest>
+    <AsyncGuardTest lvl={11}></AsyncGuardTest>
+    <AsyncGuardTest lvl={12}>
+      <AsyncGuardTest lvl={121}>
+        <AsyncGuardTest lvl={1211}></AsyncGuardTest>
+        <AsyncGuardTest lvl={1212}></AsyncGuardTest>
       </AsyncGuardTest>
-      <AsyncGuardTest lvl={2.2}></AsyncGuardTest>
+      <AsyncGuardTest lvl={122}></AsyncGuardTest>
     </AsyncGuardTest>
-    <AsyncGuardTest lvl={1.3}></AsyncGuardTest>
-    <AsyncGuardTest lvl={1.4}>
-      <AsyncGuardTest lvl={2.2}>
-        <AsyncGuardTest lvl={3.3}></AsyncGuardTest>
-        <AsyncGuardTest lvl={3.4}></AsyncGuardTest>
+    <AsyncGuardTest lvl={13}></AsyncGuardTest>
+    <AsyncGuardTest lvl={14}>
+      <AsyncGuardTest lvl={141}>
+        <AsyncGuardTest lvl={1411}></AsyncGuardTest>
+        <AsyncGuardTest lvl={1412}></AsyncGuardTest>
       </AsyncGuardTest>
-      <AsyncGuardTest lvl={2.3}></AsyncGuardTest>
+      <AsyncGuardTest lvl={142}></AsyncGuardTest>
     </AsyncGuardTest>
-    <AsyncGuardTest lvl={1.5}></AsyncGuardTest>
+    <AsyncGuardTest lvl={15}></AsyncGuardTest>
   </FlatWrapper>
 );
