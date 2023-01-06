@@ -6,22 +6,26 @@ import React, {
   ReactElement,
   ReactNode,
   Suspense,
+  useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from 'react';
 
 export const FlatWrapper: ComponentType<PropsWithChildren> = ({ children }) => {
   const [count, setCount] = useState(0);
-  // useEffect(() => {
-  //   const i = setInterval(() => setCount((v) => v + 1), 200);
-  //   return () => clearInterval(i);
-  // }, []);
+  useEffect(() => {
+    const i = setInterval(() => {
+      setCount((v) => v + 1);
+    }, 1000);
+    return () => clearInterval(i);
+  }, []);
   return (
     <fieldset>
       {count}
-      <>{count % 2 === 0 ? children : <h3>odd</h3>}</>
+      <>{children}</>
     </fieldset>
   );
 };
@@ -31,6 +35,8 @@ const asyncGuardContext = createContext<{
 }>({
   promise: Promise.resolve(),
 });
+
+const Cancel = Symbol('AsyncGuard Cancel');
 
 const AsyncGuard = <TaskResult,>({
   task,
@@ -53,67 +59,92 @@ const AsyncGuard = <TaskResult,>({
     }
 )) => {
   const ctx = useContext(asyncGuardContext);
-  const taskRef = useRef(task);
-  const errorRef = useRef<unknown>();
-  const successRef = useRef<TaskResult>();
-  const [status, setStatus] = useState<'pending' | 'progress' | 'error' | 'success'>(
-    'pending',
-  );
+  const progressPromiseCancelRef =
+    useRef<(v: typeof Cancel | PromiseLike<typeof Cancel>) => void>();
+  const [state, setState] = useState<
+    | {
+        error: unknown;
+      }
+    | {
+        result: TaskResult;
+      }
+    | 'pending'
+    | 'progress'
+  >('pending');
+
   useEffect(() => {
-    errorRef.current = undefined;
-    successRef.current = undefined;
+    console.log('pending', task.debug);
+    setState('pending');
     ctx.promise = ctx.promise
-      .then(() => {
-        setStatus('progress');
-        return taskRef.current();
+      .then((r) => {
+        setState('progress');
+        return new Promise<TaskResult | typeof Cancel>((resolve) => {
+          progressPromiseCancelRef.current = resolve;
+          task().then(resolve);
+        });
       })
       .then((success) => {
-        console.log('task done', success);
-        successRef.current = success;
-        errorRef.current = undefined;
-        setStatus('success');
+        if (success === Cancel) {
+          return ['canceled', task.debug];
+        }
+        setState({ result: success });
+        return ['success ' + success, task.debug];
       })
       .catch((error) => {
-        successRef.current = undefined;
-        errorRef.current = error;
-        setStatus('error');
+        setState({ error });
+        return ['error ' + error, task.debug];
       });
-  }, [ctx]);
 
-  if (status === 'success') {
+    return () => {
+      console.log('task canceling...', task.debug);
+      if (progressPromiseCancelRef.current) {
+        setState('pending');
+        progressPromiseCancelRef.current(Cancel);
+      }
+    };
+  }, [ctx, task]);
+
+  if (state === 'progress') {
+    return (onProgress && onProgress()) || null;
+  }
+  if (state === 'pending') {
+    return (onPending && onPending()) || null;
+  }
+  if ('result' in state) {
     const array = Array.isArray(children) ? children : [children];
     return (
       <>
         {array.map((e, key) => (
-          <React.Fragment key={key}>
-            {successRef.current && e(successRef.current)}
-          </React.Fragment>
+          <React.Fragment key={key}>{e(state.result)}</React.Fragment>
         ))}
       </>
     );
   }
-  if (status === 'error') {
-    if (onError) return onError(errorRef.current);
-    throw errorRef.current;
+  if ('error' in state) {
+    if (onError) return onError(state.error);
+    throw state.error;
   }
-  if (status === 'pending') return (onPending && onPending()) || null;
-  if (status === 'progress') return (onProgress && onProgress()) || null;
 
   return null;
 };
 
 /// TESTS -----------------
-const delay = <T,>(ms = 500, v?: T) => new Promise((r) => setTimeout(() => r(v), ms));
+const delay = <T,>(v?: T, ms = 1000) => new Promise((r) => setTimeout(() => r(v), ms));
 
-const AsyncGuardTest: React.ComponentType<PropsWithChildren<{ lvl: number }>> = ({
-  lvl,
-  children,
-}) => {
+const AsyncGuardTest: React.ComponentType<{
+  ms: number;
+  parentCount: number;
+  children: ((v: number) => JSX.Element)[];
+}> = ({ ms, parentCount, children }) => {
+  const [count, setCount] = useState(parentCount);
+  const task = useCallback(() => delay(count, ms).then(() => count), [count, ms]);
+  task.debug = `ms:${ms}, count:${count}`;
   return (
     <fieldset>
-      <p>{lvl}</p>
+      <p>parentCount: {parentCount}</p>
+      <button onClick={() => setCount((v) => v + 1)}>{count}</button>
       <AsyncGuard
-        task={() => delay(1500).then(() => `${lvl}`)}
+        task={task}
         onError={(error) => <p>{String(error)}</p>}
         onPending={() => <p style={{ color: 'gray' }}>Pending...</p>}
         onProgress={() => <p style={{ color: 'blue' }}>Progress...</p>}
@@ -124,10 +155,16 @@ const AsyncGuardTest: React.ComponentType<PropsWithChildren<{ lvl: number }>> = 
             return (
               <>
                 <p style={{ color: 'green' }}>Result: {r}</p>
-                <>{children}</>
               </>
             );
           },
+          (r) => (
+            <>
+              {children.map((ch, key) => (
+                <React.Fragment key={key}>{ch(r * 10)}</React.Fragment>
+              ))}
+            </>
+          ),
         ]}
       </AsyncGuard>
     </fieldset>
@@ -136,22 +173,35 @@ const AsyncGuardTest: React.ComponentType<PropsWithChildren<{ lvl: number }>> = 
 
 export const test = (
   <FlatWrapper>
-    <AsyncGuardTest lvl={11}></AsyncGuardTest>
-    <AsyncGuardTest lvl={12}>
-      <AsyncGuardTest lvl={121}>
-        <AsyncGuardTest lvl={1211}></AsyncGuardTest>
-        <AsyncGuardTest lvl={1212}></AsyncGuardTest>
-      </AsyncGuardTest>
-      <AsyncGuardTest lvl={122}></AsyncGuardTest>
+    <AsyncGuardTest parentCount={1} ms={1000}>
+      {[
+        //
+        (prev) => (
+          <AsyncGuardTest parentCount={prev + 1} ms={5000}>
+            {[
+              //
+              (r) => <p style={{ color: 'red' }}>Final Result: {r}</p>,
+            ]}
+          </AsyncGuardTest>
+        ),
+        //
+        (prev) => (
+          <AsyncGuardTest parentCount={prev + 2} ms={5000}>
+            {[
+              //
+              (r) => <p style={{ color: 'red' }}>Final Result: {r}</p>,
+            ]}
+          </AsyncGuardTest>
+        ),
+        (prev) => (
+          <AsyncGuardTest parentCount={prev + 3} ms={5000}>
+            {[
+              //
+              (r) => <p style={{ color: 'red' }}>Final Result: {r}</p>,
+            ]}
+          </AsyncGuardTest>
+        ),
+      ]}
     </AsyncGuardTest>
-    <AsyncGuardTest lvl={13}></AsyncGuardTest>
-    <AsyncGuardTest lvl={14}>
-      <AsyncGuardTest lvl={141}>
-        <AsyncGuardTest lvl={1411}></AsyncGuardTest>
-        <AsyncGuardTest lvl={1412}></AsyncGuardTest>
-      </AsyncGuardTest>
-      <AsyncGuardTest lvl={142}></AsyncGuardTest>
-    </AsyncGuardTest>
-    <AsyncGuardTest lvl={15}></AsyncGuardTest>
   </FlatWrapper>
 );
