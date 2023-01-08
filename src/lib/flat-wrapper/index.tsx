@@ -65,7 +65,7 @@ const Async = <TaskResult,>({
 )) => {
   const ctx = useContext(context);
   const cancelRef = useRef<ContextPromiseCancel>();
-  const canStartRef = useRef(false);
+  const awaitForRef = useRef<typeof awaitFor | null>(null);
   const [state, setState] = useState<
     | {
         error: unknown;
@@ -78,11 +78,11 @@ const Async = <TaskResult,>({
   >('pending');
 
   useEffect(() => {
-    canStartRef.current = true;
+    awaitForRef.current = awaitFor;
     setState('pending');
     ctx.promise = ctx.promise
       .then(() => {
-        if (!canStartRef.current) {
+        if (awaitForRef.current !== awaitFor) {
           throw Cancel;
         }
         return new Promise<TaskResult>((resolve, reject) => {
@@ -103,9 +103,8 @@ const Async = <TaskResult,>({
       });
 
     return () => {
-      canStartRef.current = false;
+      awaitForRef.current = null;
       if (cancelRef.current) {
-        setState('pending');
         cancelRef.current(Cancel);
       }
     };
@@ -189,15 +188,17 @@ export const test = (
         (prev) => <Test parentCount={prev + 1} ms={ms2}></Test>,
         (prev) => <Test parentCount={prev + 2} ms={ms2}></Test>,
         (prev) => <Test parentCount={prev + 3} ms={ms2}></Test>,
+        (prev) => <Test parentCount={prev + 4} ms={ms2}></Test>,
+        (prev) => <Test parentCount={prev + 5} ms={ms2}></Test>,
       ]}
     </Test>
-    {/*<Test parentCount={1} ms={ms1}>*/}
-    {/*  {[*/}
-    {/*    //*/}
-    {/*    (prev) => <Test parentCount={prev + 1} ms={ms2} />,*/}
-    {/*    (prev) => <Test parentCount={prev + 2} ms={ms2} />,*/}
-    {/*    (prev) => <Test parentCount={prev + 3} ms={ms2} />,*/}
-    {/*  ]}*/}
-    {/*</Test>*/}
+    <Test parentCount={1} ms={ms1}>
+      {[
+        //
+        (prev) => <Test parentCount={prev + 1} ms={ms2} />,
+        (prev) => <Test parentCount={prev + 2} ms={ms2} />,
+        (prev) => <Test parentCount={prev + 3} ms={ms2} />,
+      ]}
+    </Test>
   </FlatWrapper>
 );
