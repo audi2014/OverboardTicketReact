@@ -30,30 +30,27 @@ export const FlatWrapper: ComponentType<PropsWithChildren> = ({ children }) => {
   );
 };
 
-type ContextPromiseResult = {
-  isCanceled: boolean;
-};
+type ContextPromiseResult = void;
 type ContextPromise = Promise<ContextPromiseResult>;
 type ContextPromiseCancel = (v: typeof Cancel | PromiseLike<typeof Cancel>) => void;
-
-const context = createContext<{
+type ContextValue = {
   promise: ContextPromise;
-}>({
-  promise: Promise.resolve({
-    isCanceled: false,
-  }),
+};
+
+const context = createContext<ContextValue>({
+  promise: Promise.resolve(),
 });
 
 const Cancel = Symbol('AsyncGuard Cancel');
 
-const AsyncGuard = <TaskResult,>({
-  task,
+const Async = <TaskResult,>({
+  awaitFor,
   children,
   onPending,
   onProgress,
   onError,
 }: {
-  task: () => Promise<TaskResult>;
+  awaitFor: () => Promise<TaskResult>;
   children: ((v: TaskResult) => ReactElement)[] | ((v: TaskResult) => ReactElement);
   onPending?: () => ReactElement;
   onProgress?: () => ReactElement;
@@ -67,7 +64,8 @@ const AsyncGuard = <TaskResult,>({
     }
 )) => {
   const ctx = useContext(context);
-  const contextPromiseCancelRef = useRef<ContextPromiseCancel>();
+  const cancelRef = useRef<ContextPromiseCancel>();
+  const canStartRef = useRef(false);
   const [state, setState] = useState<
     | {
         error: unknown;
@@ -80,34 +78,38 @@ const AsyncGuard = <TaskResult,>({
   >('pending');
 
   useEffect(() => {
+    canStartRef.current = true;
     setState('pending');
     ctx.promise = ctx.promise
-      .then((r) => {
-        setState('progress');
-        return new Promise<TaskResult | typeof Cancel>((resolve) => {
-          contextPromiseCancelRef.current = resolve;
-          task().then(resolve);
+      .then(() => {
+        if (!canStartRef.current) {
+          throw Cancel;
+        }
+        return new Promise<TaskResult>((resolve, reject) => {
+          cancelRef.current = reject;
+          setState('progress');
+          awaitFor().then(resolve);
         });
       })
       .then((success) => {
-        if (success === Cancel) {
-          return { isCanceled: true };
-        }
         setState({ result: success });
-        return { isCanceled: false };
+        return;
       })
       .catch((error) => {
+        if (error === Cancel) {
+          return;
+        }
         setState({ error });
-        return { isCanceled: false };
       });
 
     return () => {
-      if (contextPromiseCancelRef.current) {
+      canStartRef.current = false;
+      if (cancelRef.current) {
         setState('pending');
-        contextPromiseCancelRef.current(Cancel);
+        cancelRef.current(Cancel);
       }
     };
-  }, [ctx, task]);
+  }, [ctx, awaitFor]);
 
   if (state === 'progress') {
     return (onProgress && onProgress()) || null;
@@ -150,11 +152,12 @@ const Test: React.ComponentType<{
       }),
     [count, ms],
   );
+  task.debug = `count: ${count} ms: ${ms}`;
   return (
     <fieldset>
       <button onClick={() => setCount((v) => v + 1)}>{count}</button>
-      <AsyncGuard
-        task={task}
+      <Async
+        awaitFor={task}
         onError={(error) => <p>{String(error)}</p>}
         onPending={() => <p style={{ color: 'gray' }}>Pending...</p>}
         onProgress={() => <p style={{ color: 'blue' }}>Progress...</p>}
@@ -170,7 +173,7 @@ const Test: React.ComponentType<{
             </>
           ),
         ]}
-      </AsyncGuard>
+      </Async>
     </fieldset>
   );
 };
