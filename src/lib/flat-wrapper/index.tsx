@@ -1,15 +1,11 @@
 import React, {
   ComponentType,
   createContext,
-  LazyExoticComponent,
   PropsWithChildren,
   ReactElement,
-  ReactNode,
-  Suspense,
   useCallback,
   useContext,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -32,39 +28,45 @@ export const FlatWrapper: ComponentType<PropsWithChildren> = ({ children }) => {
 
 type ContextPromiseResult = void;
 type ContextPromise = Promise<ContextPromiseResult>;
-type ContextPromiseCancel = (v: typeof Cancel | PromiseLike<typeof Cancel>) => void;
 type ContextValue = {
-  promise: ContextPromise;
+  next: ContextPromise;
 };
-
-const context = createContext<ContextValue>({
-  promise: Promise.resolve(),
-});
-
-const Cancel = Symbol('AsyncGuard Cancel');
-
-const Async = <TaskResult,>({
-  awaitFor,
-  children,
-  onPending,
-  onProgress,
-  onError,
-}: {
+type ConfigPropsType = {
+  waitForPrev?: boolean;
+  blockNext?: boolean;
+  blockChildren?: boolean;
+};
+type PropsType<TaskResult> = ConfigPropsType & {
   awaitFor: () => Promise<TaskResult>;
   children: ((v: TaskResult) => ReactElement)[] | ((v: TaskResult) => ReactElement);
   onPending?: () => ReactElement;
   onProgress?: () => ReactElement;
   onError?: (error: unknown) => ReactElement;
-} & (
-  | {
-      children: (v: TaskResult) => ReactElement;
-    }
-  | {
-      children: ((v: TaskResult) => ReactElement)[];
-    }
-)) => {
+};
+
+const context = createContext<ContextValue>({
+  next: Promise.resolve(),
+});
+
+const Async = <TaskResult,>({
+  waitForPrev = true,
+  blockNext = true,
+  blockChildren = true,
+  awaitFor,
+  children,
+  onPending,
+  onProgress,
+  onError,
+}: PropsType<TaskResult> &
+  (
+    | {
+        children: (v: TaskResult) => ReactElement;
+      }
+    | {
+        children: ((v: TaskResult) => ReactElement)[];
+      }
+  )) => {
   const ctx = useContext(context);
-  const cancelRef = useRef<ContextPromiseCancel>();
   const awaitForRef = useRef<typeof awaitFor | null>(null);
   const [state, setState] = useState<
     | {
@@ -80,35 +82,42 @@ const Async = <TaskResult,>({
   useEffect(() => {
     awaitForRef.current = awaitFor;
     setState('pending');
-    ctx.promise = ctx.promise
-      .then(() => {
+    const prevPromise = ctx.next;
+    ctx.next = new Promise<void>((resolveNext) => {
+      (waitForPrev ? prevPromise : Promise.resolve()).then(() => {
         if (awaitForRef.current !== awaitFor) {
-          throw Cancel;
-        }
-        return new Promise<TaskResult>((resolve, reject) => {
-          cancelRef.current = reject;
-          setState('progress');
-          awaitFor().then(resolve);
-        });
-      })
-      .then((success) => {
-        setState({ result: success });
-        return;
-      })
-      .catch((error) => {
-        if (error === Cancel) {
+          // awaitFor didChange after finishing parent task - prevent start execution outdated task
+          resolveNext();
           return;
         }
-        setState({ error });
+        if (!blockNext) {
+          // start next task before finishing this component task
+          resolveNext();
+        }
+        setState('progress');
+        awaitFor()
+          .then((success) => {
+            // awaitFor didChange after finishing component task - prevent rendering of outdated results
+            if (awaitForRef.current !== awaitFor) {
+              return;
+            }
+            setState({ result: success });
+          })
+          .catch((error) => {
+            // awaitFor didChange after finishing component task - prevent rendering of outdated results
+            if (awaitForRef.current !== awaitFor) {
+              return;
+            }
+            setState({ error });
+          })
+          .finally(resolveNext);
       });
+    });
 
     return () => {
       awaitForRef.current = null;
-      if (cancelRef.current) {
-        cancelRef.current(Cancel);
-      }
     };
-  }, [ctx, awaitFor]);
+  }, [ctx, awaitFor, blockNext, waitForPrev]);
 
   if (state === 'progress') {
     return (onProgress && onProgress()) || null;
@@ -118,6 +127,15 @@ const Async = <TaskResult,>({
   }
   if ('result' in state) {
     const array = Array.isArray(children) ? children : [children];
+    if (!blockChildren) {
+      return (
+        <context.Provider value={{ next: Promise.resolve() }}>
+          {array.map((e, key) => (
+            <React.Fragment key={key}>{e(state.result)}</React.Fragment>
+          ))}
+        </context.Provider>
+      );
+    }
     return (
       <>
         {array.map((e, key) => (
@@ -137,11 +155,19 @@ const Async = <TaskResult,>({
 /// TESTS -----------------
 const delay = <T,>(v?: T, ms = 1000) => new Promise((r) => setTimeout(() => r(v), ms));
 
-const Test: React.ComponentType<{
-  ms: number;
-  parentCount: number;
-  children?: ((v: number) => JSX.Element)[];
-}> = ({ ms, parentCount, children = [] }) => {
+const Test: React.ComponentType<
+  {
+    ms: number;
+    parentCount: number;
+    children?: ((v: number) => JSX.Element)[];
+  } & ConfigPropsType
+> = ({
+  //
+  ms,
+  parentCount,
+  children = [],
+  ...configProps
+}) => {
   const [count, setCount] = useState(parentCount);
   const task = useCallback(
     () =>
@@ -151,11 +177,11 @@ const Test: React.ComponentType<{
       }),
     [count, ms],
   );
-  task.debug = `count: ${count} ms: ${ms}`;
   return (
     <fieldset>
       <button onClick={() => setCount((v) => v + 1)}>{count}</button>
       <Async
+        {...configProps}
         awaitFor={task}
         onError={(error) => <p>{String(error)}</p>}
         onPending={() => <p style={{ color: 'gray' }}>Pending...</p>}
@@ -185,14 +211,14 @@ export const test = (
     <Test parentCount={1} ms={ms1}>
       {[
         //
-        (prev) => <Test parentCount={prev + 1} ms={ms2}></Test>,
+        (prev) => <Test blockNext={false} parentCount={prev + 1} ms={ms2}></Test>,
         (prev) => <Test parentCount={prev + 2} ms={ms2}></Test>,
         (prev) => <Test parentCount={prev + 3} ms={ms2}></Test>,
-        (prev) => <Test parentCount={prev + 4} ms={ms2}></Test>,
+        (prev) => <Test waitForPrev={false} parentCount={prev + 4} ms={ms2}></Test>,
         (prev) => <Test parentCount={prev + 5} ms={ms2}></Test>,
       ]}
     </Test>
-    <Test parentCount={1} ms={ms1}>
+    <Test parentCount={1} ms={ms1} blockChildren={false} waitForPrev={false}>
       {[
         //
         (prev) => <Test parentCount={prev + 1} ms={ms2} />,
