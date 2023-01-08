@@ -30,10 +30,18 @@ export const FlatWrapper: ComponentType<PropsWithChildren> = ({ children }) => {
   );
 };
 
-const asyncGuardContext = createContext<{
-  promise: Promise<unknown>;
+type ContextPromiseResult = {
+  isCanceled: boolean;
+};
+type ContextPromise = Promise<ContextPromiseResult>;
+type ContextPromiseCancel = (v: typeof Cancel | PromiseLike<typeof Cancel>) => void;
+
+const context = createContext<{
+  promise: ContextPromise;
 }>({
-  promise: Promise.resolve(),
+  promise: Promise.resolve({
+    isCanceled: false,
+  }),
 });
 
 const Cancel = Symbol('AsyncGuard Cancel');
@@ -58,9 +66,8 @@ const AsyncGuard = <TaskResult,>({
       children: ((v: TaskResult) => ReactElement)[];
     }
 )) => {
-  const ctx = useContext(asyncGuardContext);
-  const progressPromiseCancelRef =
-    useRef<(v: typeof Cancel | PromiseLike<typeof Cancel>) => void>();
+  const ctx = useContext(context);
+  const contextPromiseCancelRef = useRef<ContextPromiseCancel>();
   const [state, setState] = useState<
     | {
         error: unknown;
@@ -73,33 +80,31 @@ const AsyncGuard = <TaskResult,>({
   >('pending');
 
   useEffect(() => {
-    console.log('pending', task.debug);
     setState('pending');
     ctx.promise = ctx.promise
       .then((r) => {
         setState('progress');
         return new Promise<TaskResult | typeof Cancel>((resolve) => {
-          progressPromiseCancelRef.current = resolve;
+          contextPromiseCancelRef.current = resolve;
           task().then(resolve);
         });
       })
       .then((success) => {
         if (success === Cancel) {
-          return ['canceled', task.debug];
+          return { isCanceled: true };
         }
         setState({ result: success });
-        return ['success ' + success, task.debug];
+        return { isCanceled: false };
       })
       .catch((error) => {
         setState({ error });
-        return ['error ' + error, task.debug];
+        return { isCanceled: false };
       });
 
     return () => {
-      console.log('task canceling...', task.debug);
-      if (progressPromiseCancelRef.current) {
+      if (contextPromiseCancelRef.current) {
         setState('pending');
-        progressPromiseCancelRef.current(Cancel);
+        contextPromiseCancelRef.current(Cancel);
       }
     };
   }, [ctx, task]);
@@ -131,17 +136,22 @@ const AsyncGuard = <TaskResult,>({
 /// TESTS -----------------
 const delay = <T,>(v?: T, ms = 1000) => new Promise((r) => setTimeout(() => r(v), ms));
 
-const AsyncGuardTest: React.ComponentType<{
+const Test: React.ComponentType<{
   ms: number;
   parentCount: number;
-  children: ((v: number) => JSX.Element)[];
-}> = ({ ms, parentCount, children }) => {
+  children?: ((v: number) => JSX.Element)[];
+}> = ({ ms, parentCount, children = [] }) => {
   const [count, setCount] = useState(parentCount);
-  const task = useCallback(() => delay(count, ms).then(() => count), [count, ms]);
-  task.debug = `ms:${ms}, count:${count}`;
+  const task = useCallback(
+    () =>
+      delay(count, ms).then(() => {
+        console.log(`task.done: count: ${count} ms: ${ms}`);
+        return count;
+      }),
+    [count, ms],
+  );
   return (
     <fieldset>
-      <p>parentCount: {parentCount}</p>
       <button onClick={() => setCount((v) => v + 1)}>{count}</button>
       <AsyncGuard
         task={task}
@@ -151,13 +161,7 @@ const AsyncGuardTest: React.ComponentType<{
       >
         {[
           //
-          (r) => {
-            return (
-              <>
-                <p style={{ color: 'green' }}>Result: {r}</p>
-              </>
-            );
-          },
+          (r) => <p style={{ color: 'red' }}>Result: {r}</p>,
           (r) => (
             <>
               {children.map((ch, key) => (
@@ -171,37 +175,26 @@ const AsyncGuardTest: React.ComponentType<{
   );
 };
 
+const ms1 = 1000;
+const ms2 = 2000;
+
 export const test = (
   <FlatWrapper>
-    <AsyncGuardTest parentCount={1} ms={1000}>
+    <Test parentCount={1} ms={ms1}>
       {[
         //
-        (prev) => (
-          <AsyncGuardTest parentCount={prev + 1} ms={5000}>
-            {[
-              //
-              (r) => <p style={{ color: 'red' }}>Final Result: {r}</p>,
-            ]}
-          </AsyncGuardTest>
-        ),
-        //
-        (prev) => (
-          <AsyncGuardTest parentCount={prev + 2} ms={5000}>
-            {[
-              //
-              (r) => <p style={{ color: 'red' }}>Final Result: {r}</p>,
-            ]}
-          </AsyncGuardTest>
-        ),
-        (prev) => (
-          <AsyncGuardTest parentCount={prev + 3} ms={5000}>
-            {[
-              //
-              (r) => <p style={{ color: 'red' }}>Final Result: {r}</p>,
-            ]}
-          </AsyncGuardTest>
-        ),
+        (prev) => <Test parentCount={prev + 1} ms={ms2}></Test>,
+        (prev) => <Test parentCount={prev + 2} ms={ms2}></Test>,
+        (prev) => <Test parentCount={prev + 3} ms={ms2}></Test>,
       ]}
-    </AsyncGuardTest>
+    </Test>
+    {/*<Test parentCount={1} ms={ms1}>*/}
+    {/*  {[*/}
+    {/*    //*/}
+    {/*    (prev) => <Test parentCount={prev + 1} ms={ms2} />,*/}
+    {/*    (prev) => <Test parentCount={prev + 2} ms={ms2} />,*/}
+    {/*    (prev) => <Test parentCount={prev + 3} ms={ms2} />,*/}
+    {/*  ]}*/}
+    {/*</Test>*/}
   </FlatWrapper>
 );
