@@ -15,6 +15,12 @@ export const contextAsync = createContext<ContextValue>({
   blocker: Promise.resolve(),
 });
 
+export const AsyncRoot: ComponentType<PropsWithChildren> = ({ children }) => (
+  <contextAsync.Provider value={{ blocker: Promise.resolve() }}>
+    {children}
+  </contextAsync.Provider>
+);
+
 export const Async = <TaskResult,>({
   wait = true,
   blockNext = true,
@@ -102,11 +108,7 @@ export const Async = <TaskResult,>({
     if (blockChildren) {
       return <>{resultElements}</>;
     }
-    return (
-      <contextAsync.Provider value={{ blocker: Promise.resolve() }}>
-        {resultElements}
-      </contextAsync.Provider>
-    );
+    return <AsyncRoot>{resultElements}</AsyncRoot>;
   }
 
   if (state.status === 'pending') {
@@ -124,11 +126,5 @@ export const Async = <TaskResult,>({
 
   return null;
 };
-
-export const AsyncRoot: ComponentType<PropsWithChildren> = ({ children }) => (
-  <contextAsync.Provider value={{ blocker: Promise.resolve() }}>
-    {children}
-  </contextAsync.Provider>
-);
 
 export default Async;
