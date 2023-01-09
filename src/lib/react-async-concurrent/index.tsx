@@ -1,4 +1,12 @@
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, {
+  ComponentType,
+  createContext,
+  PropsWithChildren,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 import { ContextValue } from './context.types';
 import { PromiseFn, PropsType, StateType } from './index.types';
@@ -17,6 +25,7 @@ export const Async = <TaskResult,>({
   const context = useContext(contextAsync);
   const taskRef = useRef<PromiseFn<TaskResult>>();
   const cancelTaskPromiseRef = useRef<() => void>();
+  const resolveNextRef = useRef<() => void>();
   const [state, setState] = useState<StateType<TaskResult>>({
     status: 'pending',
     lastResult: null,
@@ -27,11 +36,11 @@ export const Async = <TaskResult,>({
     setState(({ lastResult }) => ({ status: 'pending', lastResult }));
     const blocker = context.blocker;
     context.blocker = new Promise<void>((resolveNext) => {
+      resolveNextRef.current = resolveNext;
       (wait ? blocker : Promise.resolve()).then(() => {
         if (taskRef.current !== promiseFn) {
           // awaitFor didChange after finishing parent task - prevent start execution outdated task
           resolveNext();
-          cancelTaskPromiseRef.current && cancelTaskPromiseRef.current();
           return;
         }
         if (!blockNext) {
@@ -67,6 +76,15 @@ export const Async = <TaskResult,>({
 
     return () => {
       taskRef.current = undefined;
+      // unblock blocked child tasks:
+      resolveNextRef.current && resolveNextRef.current();
+      setState(({ lastResult, status }) => {
+        if (status === 'progress') {
+          // if task already started - send cancel signal
+          cancelTaskPromiseRef.current && cancelTaskPromiseRef.current();
+        }
+        return { status: 'pending', lastResult };
+      });
     };
   }, [context, promiseFn, blockNext, wait]);
 
@@ -106,5 +124,11 @@ export const Async = <TaskResult,>({
 
   return null;
 };
+
+export const AsyncRoot: ComponentType<PropsWithChildren> = ({ children }) => (
+  <contextAsync.Provider value={{ blocker: Promise.resolve() }}>
+    {children}
+  </contextAsync.Provider>
+);
 
 export default Async;
