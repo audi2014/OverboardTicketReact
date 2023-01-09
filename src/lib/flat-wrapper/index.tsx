@@ -29,45 +29,38 @@ export const FlatWrapper: ComponentType<PropsWithChildren> = ({ children }) => {
 type ContextPromiseResult = void;
 type ContextPromise = Promise<ContextPromiseResult>;
 type ContextValue = {
-  next: ContextPromise;
+  blocker: ContextPromise;
 };
 type ConfigPropsType = {
-  waitForPrev?: boolean;
+  wait?: boolean;
   blockNext?: boolean;
   blockChildren?: boolean;
 };
+type ChildType<TaskResult> = (props: { result: TaskResult }) => ReactElement;
 type PropsType<TaskResult> = ConfigPropsType & {
-  awaitFor: () => Promise<TaskResult>;
-  children: ((v: TaskResult) => ReactElement)[] | ((v: TaskResult) => ReactElement);
-  onPending?: () => ReactElement;
-  onProgress?: () => ReactElement;
-  onError?: (error: unknown) => ReactElement;
+  task: () => Promise<TaskResult>;
+  Pending?: () => ReactElement;
+  Progress?: () => ReactElement;
+  Error?: (props: { error: unknown }) => ReactElement;
+  children: ChildType<TaskResult> | ChildType<TaskResult>[];
 };
 
 const context = createContext<ContextValue>({
-  next: Promise.resolve(),
+  blocker: Promise.resolve(),
 });
 
 const Async = <TaskResult,>({
-  waitForPrev = true,
+  wait = true,
   blockNext = true,
   blockChildren = true,
-  awaitFor,
+  task,
+  Pending,
+  Progress,
+  Error,
   children,
-  onPending,
-  onProgress,
-  onError,
-}: PropsType<TaskResult> &
-  (
-    | {
-        children: (v: TaskResult) => ReactElement;
-      }
-    | {
-        children: ((v: TaskResult) => ReactElement)[];
-      }
-  )) => {
+}: PropsType<TaskResult>) => {
   const ctx = useContext(context);
-  const awaitForRef = useRef<typeof awaitFor | null>(null);
+  const taskRef = useRef<typeof task | null>(null);
   const [state, setState] = useState<
     | {
         error: unknown;
@@ -80,12 +73,12 @@ const Async = <TaskResult,>({
   >('pending');
 
   useEffect(() => {
-    awaitForRef.current = awaitFor;
+    taskRef.current = task;
     setState('pending');
-    const prevPromise = ctx.next;
-    ctx.next = new Promise<void>((resolveNext) => {
-      (waitForPrev ? prevPromise : Promise.resolve()).then(() => {
-        if (awaitForRef.current !== awaitFor) {
+    const blocker = ctx.blocker;
+    ctx.blocker = new Promise<void>((resolveNext) => {
+      (wait ? blocker : Promise.resolve()).then(() => {
+        if (taskRef.current !== task) {
           // awaitFor didChange after finishing parent task - prevent start execution outdated task
           resolveNext();
           return;
@@ -95,17 +88,17 @@ const Async = <TaskResult,>({
           resolveNext();
         }
         setState('progress');
-        awaitFor()
+        task()
           .then((success) => {
             // awaitFor didChange after finishing component task - prevent rendering of outdated results
-            if (awaitForRef.current !== awaitFor) {
+            if (taskRef.current !== task) {
               return;
             }
             setState({ result: success });
           })
           .catch((error) => {
             // awaitFor didChange after finishing component task - prevent rendering of outdated results
-            if (awaitForRef.current !== awaitFor) {
+            if (taskRef.current !== task) {
               return;
             }
             setState({ error });
@@ -115,37 +108,31 @@ const Async = <TaskResult,>({
     });
 
     return () => {
-      awaitForRef.current = null;
+      taskRef.current = null;
     };
-  }, [ctx, awaitFor, blockNext, waitForPrev]);
+  }, [ctx, task, blockNext, wait]);
 
   if (state === 'progress') {
-    return (onProgress && onProgress()) || null;
+    return (Progress && <Progress />) || null;
   }
   if (state === 'pending') {
-    return (onPending && onPending()) || null;
+    return (Pending && <Pending />) || null;
   }
   if ('result' in state) {
     const array = Array.isArray(children) ? children : [children];
-    if (!blockChildren) {
-      return (
-        <context.Provider value={{ next: Promise.resolve() }}>
-          {array.map((e, key) => (
-            <React.Fragment key={key}>{e(state.result)}</React.Fragment>
-          ))}
-        </context.Provider>
-      );
+
+    const resultElements = array.map((E, key) => <E result={state.result} key={key} />);
+    if (blockChildren) {
+      return <>{resultElements}</>;
     }
     return (
-      <>
-        {array.map((e, key) => (
-          <React.Fragment key={key}>{e(state.result)}</React.Fragment>
-        ))}
-      </>
+      <context.Provider value={{ blocker: Promise.resolve() }}>
+        {resultElements}
+      </context.Provider>
     );
   }
   if ('error' in state) {
-    if (onError) return onError(state.error);
+    if (Error) return <Error error={state.error} />;
     throw state.error;
   }
 
@@ -154,6 +141,10 @@ const Async = <TaskResult,>({
 
 /// TESTS -----------------
 const delay = <T,>(v?: T, ms = 1000) => new Promise((r) => setTimeout(() => r(v), ms));
+
+const Result = ({ result }: { result: number }) => {
+  return <p style={{ color: 'red' }}>Result: {result}</p>;
+};
 
 const Test: React.ComponentType<
   {
@@ -182,18 +173,18 @@ const Test: React.ComponentType<
       <button onClick={() => setCount((v) => v + 1)}>{count}</button>
       <Async
         {...configProps}
-        awaitFor={task}
-        onError={(error) => <p>{String(error)}</p>}
-        onPending={() => <p style={{ color: 'gray' }}>Pending...</p>}
-        onProgress={() => <p style={{ color: 'blue' }}>Progress...</p>}
+        task={task}
+        Error={({ error }) => <p>{String(error)}</p>}
+        Pending={() => <p style={{ color: 'gray' }}>Pending...</p>}
+        Progress={() => <p style={{ color: 'blue' }}>Progress...</p>}
       >
         {[
           //
-          (r) => <p style={{ color: 'red' }}>Result: {r}</p>,
-          (r) => (
+          Result,
+          ({ result }) => (
             <>
               {children.map((ch, key) => (
-                <React.Fragment key={key}>{ch(r * 10)}</React.Fragment>
+                <React.Fragment key={key}>{ch(result * 10)}</React.Fragment>
               ))}
             </>
           ),
@@ -211,14 +202,14 @@ export const test = (
     <Test parentCount={1} ms={ms1}>
       {[
         //
-        (prev) => <Test blockNext={false} parentCount={prev + 1} ms={ms2}></Test>,
+        (prev) => <Test parentCount={prev + 1} ms={ms2}></Test>,
         (prev) => <Test parentCount={prev + 2} ms={ms2}></Test>,
         (prev) => <Test parentCount={prev + 3} ms={ms2}></Test>,
-        (prev) => <Test waitForPrev={false} parentCount={prev + 4} ms={ms2}></Test>,
+        (prev) => <Test parentCount={prev + 4} ms={ms2}></Test>,
         (prev) => <Test parentCount={prev + 5} ms={ms2}></Test>,
       ]}
     </Test>
-    <Test parentCount={1} ms={ms1} blockChildren={false} waitForPrev={false}>
+    <Test parentCount={1} ms={ms1}>
       {[
         //
         (prev) => <Test parentCount={prev + 1} ms={ms2} />,
