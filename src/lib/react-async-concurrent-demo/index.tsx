@@ -1,54 +1,61 @@
-import { AsyncRoot, contextAsync } from 'lib/react-async-concurrent';
+import { AsyncRoot } from 'lib/react-async-concurrent';
 import React from 'react';
 
 import { makeAsyncTest, MakeChildrenElements } from './makeAsyncTest';
-import { makeRenderComponent } from './makeRenderComponent';
 
 /// TESTS -----------------
 
 const makeChildrenElements: MakeChildrenElements = ({
-  result,
+  count,
   chCount,
   ms,
-  wait,
-  blockNext,
-  blockChildren,
+  awaited,
+  asyncStart,
+  asyncChildren,
 }) =>
   new Array(chCount).fill(null).map((_, index) => (
-    <AsyncTestDynamic
+    <AsyncTestAlwaysShowChildren
       key={index}
       initialValues={{
-        ms: 1000,
-        result: result * 10 + index,
-        wait,
-        blockNext,
-        blockChildren,
+        count: count * 10 + index,
+        chCount: 0,
+        ms,
+        awaited,
+        asyncStart,
+        asyncChildren,
       }}
     />
   ));
 
-const AsyncTestDynamic = makeAsyncTest({
-  Render: makeRenderComponent({ alwaysShowChildren: true }),
-  makeChildrenElements,
+const AsyncTestStatic = makeAsyncTest({
+  alwaysShowChildren: false,
+  makeChildrenElements: null,
 });
 
-const AsyncTestStatic = makeAsyncTest({
-  Render: makeRenderComponent({ alwaysShowChildren: false }),
+const AsyncTestAlwaysShowChildren = makeAsyncTest({
+  alwaysShowChildren: true,
   makeChildrenElements,
 });
 
 export const ReactAsyncConcurrentDemo = () => (
   <>
-    <h1>hide children before result</h1>
+    <h1>Static</h1>
     <AsyncRoot>
-      <AsyncTestStatic initialValues={{ result: 1, ms: 1000, chCount: 3 }}>
-        <AsyncTestStatic initialValues={{ result: 2, ms: 1000, chCount: 1 }} />
+      <AsyncTestStatic initialValues={{ count: 1, ms: 1000, chCount: 3 }}>
+        <AsyncTestStatic initialValues={{ count: 10, ms: 1000, chCount: 1 }} />
+        <AsyncTestStatic initialValues={{ count: 11, ms: 1000, chCount: 1 }} />
+        <AsyncTestStatic initialValues={{ count: 12, ms: 1000, chCount: 1 }} />
+      </AsyncTestStatic>
+      <AsyncTestStatic initialValues={{ count: 1, ms: 1000, chCount: 3 }}>
+        <AsyncTestStatic initialValues={{ count: 10, ms: 1000, chCount: 1 }} />
+        <AsyncTestStatic initialValues={{ count: 11, ms: 1000, chCount: 1 }} />
+        <AsyncTestStatic initialValues={{ count: 12, ms: 1000, chCount: 1 }} />
       </AsyncTestStatic>
     </AsyncRoot>
 
     <h1>alwaysShowChildren</h1>
     <AsyncRoot>
-      <AsyncTestDynamic initialValues={{ chCount: 2 }} />
+      <AsyncTestAlwaysShowChildren initialValues={{ count: 2, chCount: 2 }} />
     </AsyncRoot>
   </>
 );

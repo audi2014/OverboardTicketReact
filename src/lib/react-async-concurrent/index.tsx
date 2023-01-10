@@ -22,9 +22,9 @@ export const AsyncRoot: ComponentType<PropsWithChildren> = ({ children }) => (
 );
 
 export const Async = <TaskResult,>({
-  wait = true,
-  blockNext = true,
-  blockChildren = true,
+  asyncStart = false,
+  asyncChildren = false,
+  awaited = true,
   promiseFn,
   ...rest
 }: PropsType<TaskResult>) => {
@@ -43,13 +43,13 @@ export const Async = <TaskResult,>({
     const blocker = context.blocker;
     context.blocker = new Promise<void>((resolveNext) => {
       resolveNextRef.current = resolveNext;
-      (wait ? blocker : Promise.resolve()).then(() => {
+      (asyncStart ? Promise.resolve() : blocker).then(() => {
         if (taskRef.current !== promiseFn) {
           // awaitFor didChange after finishing parent task - prevent start execution outdated task
           resolveNext();
           return;
         }
-        if (!blockNext) {
+        if (!awaited) {
           // start next task before finishing this component task
           resolveNext();
         }
@@ -92,35 +92,38 @@ export const Async = <TaskResult,>({
         return { status: 'pending', lastResult };
       });
     };
-  }, [context, promiseFn, blockNext, wait]);
+  }, [context, promiseFn, awaited, asyncStart]);
 
-  let resultElements: JSX.Element | JSX.Element[] | undefined;
+  const resultElements =
+    'children' in rest
+      ? rest.children(state)
+      : state.status === 'result'
+      ? rest.renderResult(state)
+      : null;
 
-  if ('Render' in rest) {
-    resultElements = <rest.Render {...state}>{rest.children}</rest.Render>;
-  } else if (state.status === 'result' && 'children' in rest) {
-    resultElements = (Array.isArray(rest.children) ? rest.children : [rest.children]).map(
-      (E, key) => <E {...state} key={key} />,
+  if (resultElements) {
+    return asyncChildren ? (
+      <AsyncRoot>{resultElements}</AsyncRoot>
+    ) : (
+      <>{resultElements}</>
     );
   }
 
-  if (resultElements) {
-    if (blockChildren) {
-      return <>{resultElements}</>;
-    }
-    return <AsyncRoot>{resultElements}</AsyncRoot>;
-  }
-
   if (state.status === 'pending') {
-    return ('Pending' in rest && rest.Pending && <rest.Pending {...state} />) || null;
+    return (
+      ('renderPending' in rest && rest.renderPending && rest.renderPending(state)) || null
+    );
   }
 
   if (state.status === 'progress') {
-    return ('Progress' in rest && rest.Progress && <rest.Progress {...state} />) || null;
+    return (
+      ('renderProgress' in rest && rest.renderProgress && rest.renderProgress(state)) ||
+      null
+    );
   }
 
   if ('error' in state) {
-    if ('Error' in rest && rest.Error) return <rest.Error {...state} />;
+    if ('renderError' in rest && rest.renderError) return rest.renderError(state);
     throw state.error;
   }
 

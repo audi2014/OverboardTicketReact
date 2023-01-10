@@ -1,11 +1,11 @@
 import { PropsWithChildren } from 'react';
 
 import {
-  ErrorComponentType,
-  PendingComponentType,
-  ProgressComponentType,
-  RenderComponentType,
-  ResultComponentType,
+  RenderAnyType,
+  RenderErrorType,
+  RenderPendingType,
+  RenderProgressType,
+  RenderResultType,
 } from './component.types';
 
 export type LastResultType<TaskResult> = {
@@ -34,25 +34,27 @@ export type StateType<TaskResult> = (
 ) &
   LastResultType<TaskResult>;
 
-export type PromiseFn<TaskResult> = () => Promise<TaskResult> & { cancel?: () => void };
-
 export type ConfigPropsType = {
-  wait: boolean;
-  blockNext: boolean;
-  blockChildren: boolean;
+  asyncStart: boolean;
+  asyncChildren: boolean;
+  awaited: boolean;
 };
+
+export type PromiseFn<TaskResult> = () => Promise<TaskResult> & { cancel?: () => void };
 
 export type PropsType<TaskResult> = {
   promiseFn: PromiseFn<TaskResult>;
 } & Partial<ConfigPropsType> &
   (
-    | PropsWithChildren<{
-        Render: RenderComponentType<TaskResult>;
-      }>
     | {
-        Pending?: PendingComponentType<TaskResult>;
-        Progress?: ProgressComponentType<TaskResult>;
-        Error?: ErrorComponentType<TaskResult>;
-        children: ResultComponentType<TaskResult> | ResultComponentType<TaskResult>[];
+        // FaCC or Function as a Child Component:
+        children: RenderAnyType<TaskResult>;
+      }
+    | {
+        // Render props:
+        renderPending?: RenderPendingType<TaskResult>;
+        renderProgress?: RenderProgressType<TaskResult>;
+        renderError?: RenderErrorType<TaskResult>;
+        renderResult: RenderResultType<TaskResult>;
       }
   );

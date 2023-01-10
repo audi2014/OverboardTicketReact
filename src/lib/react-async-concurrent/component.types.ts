@@ -1,4 +1,4 @@
-import { PropsWithChildren, ReactElement } from 'react';
+import { ReactElement } from 'react';
 
 import {
   ErrorPropsType,
@@ -8,18 +8,20 @@ import {
   StateType,
 } from './index.types';
 
-export type PendingComponentType<TaskResult> = (
+export type RenderReturnType = ReactElement | null;
+
+export type RenderPendingType<TaskResult> = (
   props: PendingPropsType<TaskResult>,
-) => ReactElement;
-export type ProgressComponentType<TaskResult> = (
+) => RenderReturnType;
+export type RenderProgressType<TaskResult> = (
   props: ProgressPropsType<TaskResult>,
-) => ReactElement;
-export type ErrorComponentType<TaskResult> = (
+) => RenderReturnType;
+export type RenderErrorType<TaskResult> = (
   props: ErrorPropsType<TaskResult>,
-) => ReactElement;
-export type ResultComponentType<TaskResult> = (
+) => RenderReturnType;
+export type RenderResultType<TaskResult> = (
   props: ResultPropsType<TaskResult>,
-) => ReactElement;
-export type RenderComponentType<TaskResult> = (
-  props: PropsWithChildren<StateType<TaskResult>>,
-) => ReactElement;
+) => RenderReturnType;
+export type RenderAnyType<TaskResult> = (
+  props: StateType<TaskResult>,
+) => RenderReturnType;
