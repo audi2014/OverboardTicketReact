@@ -1,11 +1,12 @@
 import Async from 'lib/react-async-concurrent';
 import { RenderAnyType } from 'lib/react-async-concurrent/component.types';
 import { ConfigPropsType } from 'lib/react-async-concurrent/index.types';
-import React, { PropsWithChildren, useCallback, useState } from 'react';
+import React, { PropsWithChildren, useCallback, useEffect, useState } from 'react';
 
 import { delay } from './delay';
 
 type FormProps = {
+  alwaysShowChildren: boolean;
   count: number;
   chCount: number;
   ms: number;
@@ -20,7 +21,6 @@ type AsyncTestComponent = React.ComponentType<
 export type MakeChildrenElements = (data: FormProps) => JSX.Element[];
 
 type MakeAsyncTestComponent = (props: {
-  alwaysShowChildren: boolean;
   makeChildrenElements: MakeChildrenElements | null;
 }) => AsyncTestComponent;
 
@@ -52,15 +52,22 @@ export const RenderComponent: RenderAnyType<number> = (state) => {
 
 export const makeAsyncTest: MakeAsyncTestComponent = (config) => {
   const AsyncTest: AsyncTestComponent = ({ initialValues, children }) => {
+    const [count, setCount] = useState(initialValues?.count ?? 0);
+    useEffect(() => {
+      setCount(initialValues?.count ?? 0);
+    }, [initialValues?.count]);
+
     const [ms, setMs] = useState(initialValues?.ms ?? 1000);
     const [chCount, setChCount] = useState(initialValues?.chCount ?? 0);
+    const [alwaysShowChildren, setAlwaysShowChildren] = useState(
+      initialValues?.alwaysShowChildren ?? false,
+    );
     const [asyncStart, setAsyncStart] = useState(initialValues?.asyncStart ?? false);
     const [asyncChildren, setAsyncChildren] = useState(
       initialValues?.asyncChildren ?? false,
     );
     const [awaited, setAwaited] = useState(initialValues?.awaited ?? true);
 
-    const [count, setCount] = useState(initialValues?.count ?? 0);
     const task = useCallback(() => delay(count * 10, ms), [count, ms]);
 
     return (
@@ -91,6 +98,15 @@ export const makeAsyncTest: MakeAsyncTestComponent = (config) => {
               {' children; '}
             </span>
           ) : null}
+          <span>
+            <input
+              type={'checkbox'}
+              checked={alwaysShowChildren}
+              onChange={(e) => setAlwaysShowChildren(e.target.checked)}
+            />
+            {' alwaysShowChildren; '}
+          </span>
+          <br />
           <span>
             <input
               type={'checkbox'}
@@ -133,7 +149,7 @@ export const makeAsyncTest: MakeAsyncTestComponent = (config) => {
           {(taskState) => (
             <>
               <RenderComponent {...taskState} />
-              {config.alwaysShowChildren || taskState.status === 'result' ? (
+              {alwaysShowChildren || taskState.status === 'result' ? (
                 <>
                   {config.makeChildrenElements &&
                     config.makeChildrenElements({
@@ -143,6 +159,7 @@ export const makeAsyncTest: MakeAsyncTestComponent = (config) => {
                       asyncStart,
                       asyncChildren,
                       awaited,
+                      alwaysShowChildren,
                     })}
                   {children}
                 </>

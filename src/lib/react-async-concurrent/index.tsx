@@ -1,6 +1,7 @@
 import React, {
   ComponentType,
   createContext,
+  Fragment,
   PropsWithChildren,
   useContext,
   useEffect,
@@ -15,11 +16,18 @@ export const contextAsync = createContext<ContextValue>({
   blocker: Promise.resolve(),
 });
 
-export const AsyncRoot: ComponentType<PropsWithChildren> = ({ children }) => (
-  <contextAsync.Provider value={{ blocker: Promise.resolve() }}>
-    {children}
-  </contextAsync.Provider>
-);
+export const AsyncRoot: ComponentType<PropsWithChildren<{ useParent?: boolean }>> = ({
+  useParent,
+  children,
+}) => {
+  const context = useContext(contextAsync);
+  const valueRef = useRef({ blocker: Promise.resolve() });
+  return (
+    <contextAsync.Provider value={useParent ? context : valueRef.current}>
+      {children}
+    </contextAsync.Provider>
+  );
+};
 
 export const Async = <TaskResult,>({
   asyncStart = false,
@@ -102,11 +110,7 @@ export const Async = <TaskResult,>({
       : null;
 
   if (resultElements) {
-    return asyncChildren ? (
-      <AsyncRoot>{resultElements}</AsyncRoot>
-    ) : (
-      <>{resultElements}</>
-    );
+    return <AsyncRoot useParent={!asyncChildren}>{resultElements}</AsyncRoot>;
   }
 
   if (state.status === 'pending') {
