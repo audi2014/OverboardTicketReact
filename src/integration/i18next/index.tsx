@@ -1,6 +1,7 @@
 import { createInstance } from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import Backend from 'i18next-http-backend';
+import { ReactI18nextInContextEditor } from 'lib/react-i18next-in-context-editor/client';
 import { initReactI18next } from 'react-i18next';
 
 const isDebug = import.meta.env.MODE === 'development';
@@ -19,6 +20,7 @@ export const i18nInitialization = i18nInstance
   .use(LanguageDetector)
   // pass the i18n instance to react-i18next.
   .use(initReactI18next)
+  .use(new ReactI18nextInContextEditor({ i18n: i18nInstance }))
   // init i18next
   // for all options read: https://www.i18next.com/overview/configuration-options
   .init({
@@ -28,4 +30,5 @@ export const i18nInitialization = i18nInstance
     interpolation: {
       escapeValue: false, // not needed for react as it escapes by default
     },
+    postProcess: [ReactI18nextInContextEditor.getName()],
   });

@@ -1,0 +1,12 @@
+{
+  "wrong": "wrong",
+  "ok": "ok default",
+  "ok_one": "ok one",
+  "ok_other": "ok other",
+  "scope": {
+    "wrong": "scope > wrong",
+    "ok": "scope > ok default",
+    "ok_one": "scope > ok one",
+    "ok_other": "scope > ok other"
+  }
+}
